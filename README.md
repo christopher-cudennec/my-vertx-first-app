@@ -1,32 +1,16 @@
-# My First Vert.x 3 Application
+# My First Vert.x 4 Application
 
-This project is a very simple Vert.x 3 application and contains some explaination on how this application is built 
-and tested.
+This project is a very simple Vert.x 4 application. I used https://github.com/cescoffier/my-vertx-first-app/
+and upgraded it from Vertx 3 to 4.
 
-## Building
+Trying out:
+* simple web application
+* storing data in a MongoDB
+* validate incoming data
 
-You build the project using:
+## REST endpoints
 
-```
-mvn clean package
-```
-
-## Testing
-
-The application is tested using [vertx-unit](http://vertx.io/docs/vertx-unit/java/).
-
-## Packaging
-
-The application is packaged as a _fat jar_, using the 
-[Maven Shade Plugin](https://maven.apache.org/plugins/maven-shade-plugin/).
-
-## Running
-
-Once packaged, just launch the _fat jar_ as follows:
-
-```
-java -jar target/my-first-app-1.0-SNAPSHOT-fat.jar
-```
-
-Then, open a browser to http://localhost:8080.
-
+* GET /api/whiskeys
+* POST /api/whiskeys/:id
+* PUT /api/whiskeys/:id
+* DELETE /api/whiskeys/:id

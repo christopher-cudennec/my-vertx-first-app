@@ -1,0 +1,51 @@
+plugins {
+  id "java"
+}
+
+sourceCompatibility = JavaVersion.VERSION_11
+
+repositories {
+  maven {
+    url "https://nexus.sda-se.io/repository/sda-se-public/"
+    credentials {
+      username sdaNexusUser
+      password sdaNexusPassword
+    }
+  }
+  mavenCentral()
+}
+
+ext {
+  vertxVersion = "4.2.3"
+  junitJupiterVersion = '5.8.2'
+}
+
+test {
+  useJUnitPlatform()
+}
+
+dependencies {
+  implementation(platform("io.vertx:vertx-stack-depchain:$vertxVersion"))
+  implementation "io.vertx:vertx-core"
+  implementation "io.vertx:vertx-web"
+  implementation "io.vertx:vertx-web-validation"
+  implementation "io.vertx:vertx-mongo-client"
+
+  // needed for logging
+  implementation "org.slf4j:slf4j-api:1.7.32"
+  implementation "ch.qos.logback:logback-classic:1.2.9"
+
+  // needed for (de)serialization
+  implementation "com.fasterxml.jackson.core:jackson-databind:2.13.1"
+
+  // needed for validation
+  implementation "jakarta.validation:jakarta.validation-api:3.0.0"
+  implementation "org.glassfish:jakarta.el:4.0.1"
+  implementation "org.hibernate.validator:hibernate-validator:7.0.1.Final"
+
+  testImplementation "io.vertx:vertx-junit5"
+  testImplementation 'io.vertx:vertx-web-client'
+  testImplementation "org.junit.jupiter:junit-jupiter:$junitJupiterVersion"
+  testImplementation 'org.assertj:assertj-core:3.21.0'
+  testImplementation 'de.flapdoodle.embed:de.flapdoodle.embed.mongo:3.2.3'
+}

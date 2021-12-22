@@ -1,13 +1,16 @@
-package io.vertx.blog.first;
+package io.vertx.blog.first.manager.model;
 
 import io.vertx.core.json.JsonObject;
+import jakarta.validation.constraints.NotBlank;
 
 public class Whisky {
 
   private String id;
 
+  @NotBlank
   private String name;
 
+  @NotBlank
   private String origin;
 
   public Whisky(String name, String origin) {

@@ -1,42 +1,47 @@
 package io.vertx.blog.first;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
 import de.flapdoodle.embed.mongo.MongodStarter;
-import de.flapdoodle.embed.mongo.config.IMongodConfig;
-import de.flapdoodle.embed.mongo.config.MongodConfigBuilder;
+import de.flapdoodle.embed.mongo.config.MongodConfig;
 import de.flapdoodle.embed.mongo.config.Net;
 import de.flapdoodle.embed.mongo.distribution.Version;
 import de.flapdoodle.embed.process.runtime.Network;
+import io.vertx.blog.first.manager.model.Whisky;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.Async;
-import io.vertx.ext.unit.TestContext;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.junit.*;
-import org.junit.runner.RunWith;
-
+import io.vertx.ext.web.client.WebClient;
+import io.vertx.junit5.VertxExtension;
+import io.vertx.junit5.VertxTestContext;
 import java.io.IOException;
 import java.net.ServerSocket;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * This is our JUnit test for our verticle. The test uses vertx-unit, so we declare a custom runner.
+ * This is our JUnit test for our verticle. The test uses vertx-unit, so we declare a custom
+ * runner.
  */
-@RunWith(VertxUnitRunner.class)
+@ExtendWith(VertxExtension.class)
 public class MyFirstVerticleTest {
 
-  private Vertx vertx;
   private Integer port;
   private static MongodProcess MONGO;
-  private static int MONGO_PORT = 12345;
+  private static final int MONGO_PORT = 12345;
 
-  @BeforeClass
+  @BeforeAll
   public static void initialize() throws IOException {
     MongodStarter starter = MongodStarter.getDefaultInstance();
 
-    IMongodConfig mongodConfig = new MongodConfigBuilder()
+    MongodConfig mongodConfig = MongodConfig.builder()
         .version(Version.Main.PRODUCTION)
         .net(new Net(MONGO_PORT, Network.localhostIsIPv6()))
         .build();
@@ -45,7 +50,7 @@ public class MyFirstVerticleTest {
     MONGO = mongodExecutable.start();
   }
 
-  @AfterClass
+  @AfterAll
   public static void shutdown() {
     MONGO.stop();
   }
@@ -53,14 +58,14 @@ public class MyFirstVerticleTest {
   /**
    * Before executing our test, let's deploy our verticle.
    * <p/>
-   * This method instantiates a new Vertx and deploy the verticle. Then, it waits in the verticle has successfully
-   * completed its start sequence (thanks to `context.asyncAssertSuccess`).
+   * This method instantiates a new Vertx and deploy the verticle. Then, it waits in the verticle
+   * has successfully completed its start sequence (thanks to `context.asyncAssertSuccess`).
    *
    * @param context the test context.
    */
-  @Before
-  public void setUp(TestContext context) throws IOException {
-    vertx = Vertx.vertx();
+  @BeforeEach
+  public void setUp(VertxTestContext context) throws IOException {
+    Vertx vertx = Vertx.vertx();
 
     // Let's configure the verticle to listen on the 'test' port (randomly picked).
     // We create deployment options and set the _configuration_ json object:
@@ -76,7 +81,8 @@ public class MyFirstVerticleTest {
         );
 
     // We pass the options as the second parameter of the deployVerticle method.
-    vertx.deployVerticle(MyFirstVerticle.class.getName(), options, context.asyncAssertSuccess());
+    vertx.deployVerticle(MyFirstVerticle.class.getName(), options,
+        context.succeedingThenComplete());
   }
 
   /**
@@ -84,9 +90,9 @@ public class MyFirstVerticleTest {
    *
    * @param context the test context
    */
-  @After
-  public void tearDown(TestContext context) {
-    vertx.close(context.asyncAssertSuccess());
+  @AfterEach
+  public void tearDown(Vertx vertx, VertxTestContext context) {
+    vertx.close(context.succeedingThenComplete());
   }
 
   /**
@@ -95,54 +101,61 @@ public class MyFirstVerticleTest {
    * @param context the test context
    */
   @Test
-  public void testMyApplication(TestContext context) {
-    // This test is asynchronous, so get an async handler to inform the test when we are done.
-    final Async async = context.async();
+  void testMyApplication(Vertx vertx, VertxTestContext context) {
+    var webClient = WebClient.create(vertx);
 
-    // We create a HTTP client and query our application. When we get the response we check it contains the 'Hello'
-    // message. Then, we call the `complete` method on the async handler to declare this async (and here the test) done.
-    // Notice that the assertions are made on the 'context' object and are not Junit assert. This ways it manage the
-    // async aspect of the test the right way.
-    vertx.createHttpClient().getNow(port, "localhost", "/", response -> {
-      response.handler(body -> {
-        context.assertTrue(body.toString().contains("Hello"));
-        async.complete();
-      });
-    });
+    webClient.get(port, "localhost", "/")
+        .send().onComplete(context.succeeding(response -> context.verify(() -> {
+          assertThat(response.body().toString()).contains("Hello");
+          context.completeNow();
+        })));
   }
 
   @Test
-  public void checkThatTheIndexPageIsServed(TestContext context) {
-    Async async = context.async();
-    vertx.createHttpClient().getNow(port, "localhost", "/assets/index.html", response -> {
-      context.assertEquals(response.statusCode(), 200);
-      context.assertEquals(response.headers().get("content-type"), "text/html;charset=UTF-8");
-      response.bodyHandler(body -> {
-        context.assertTrue(body.toString().contains("<title>My Whisky Collection</title>"));
-        async.complete();
-      });
-    });
+  void checkThatTheIndexPageIsServed(Vertx vertx, VertxTestContext context) {
+    var webClient = WebClient.create(vertx);
+
+    webClient.get(port, "localhost", "/assets/index.html")
+        .send().onComplete(context.succeeding(response -> context.verify(() -> {
+          assertThat(response.statusCode()).isEqualTo(200);
+          assertThat(response.getHeader("content-type")).isEqualTo("text/html;charset=UTF-8");
+
+          assertThat(response.body().toString()).contains("<title>My Whisky Collection</title>");
+          context.completeNow();
+        })));
   }
 
   @Test
-  public void checkThatWeCanAdd(TestContext context) {
-    Async async = context.async();
-    final String json = Json.encodePrettily(new Whisky("Jameson", "Ireland"));
-    vertx.createHttpClient().post(port, "localhost", "/api/whiskies")
+  void checkThatWeCanAdd(Vertx vertx, VertxTestContext context) {
+    final var newWhisky = new Whisky("Jameson", "Ireland");
+
+    var webClient = WebClient.create(vertx);
+    webClient.post(port, "localhost", "/api/whiskies")
         .putHeader("content-type", "application/json")
-        .putHeader("content-length", Integer.toString(json.length()))
-        .handler(response -> {
-          context.assertEquals(response.statusCode(), 201);
-          context.assertTrue(response.headers().get("content-type").contains("application/json"));
-          response.bodyHandler(body -> {
-            final Whisky whisky = Json.decodeValue(body.toString(), Whisky.class);
-            context.assertEquals(whisky.getName(), "Jameson");
-            context.assertEquals(whisky.getOrigin(), "Ireland");
-            context.assertNotNull(whisky.getId());
-            async.complete();
-          });
-        })
-        .write(json)
-        .end();
+        .sendJson(newWhisky)
+        .onComplete(context.succeeding(response -> context.verify(() -> {
+          assertThat(response.statusCode()).isEqualTo(201);
+          assertThat(response.getHeader("content-type")).contains("application/json");
+
+          var body = response.body();
+          assertThat(body).isNotNull();
+          final Whisky whisky = Json.decodeValue(body.toString(), Whisky.class);
+          assertThat(whisky.getName()).isEqualTo("Jameson");
+          assertThat(whisky.getOrigin()).isEqualTo("Ireland");
+          assertThat(whisky.getId()).isNotNull();
+          context.completeNow();
+        })));
+  }
+
+  @Test
+  void checkValidation(Vertx vertx, VertxTestContext context) {
+    var webClient = WebClient.create(vertx);
+    webClient.post(port, "localhost", "/api/whiskies")
+        .putHeader("content-type", "application/json")
+        .sendJson(new Whisky())
+        .onComplete(context.succeeding(response -> context.verify(() -> {
+          assertThat(response.statusCode()).isEqualTo(422);
+          context.completeNow();
+        })));
   }
 }
